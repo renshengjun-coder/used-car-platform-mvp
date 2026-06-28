@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.usedcar.mapper.ListingMapper">
+
+    <resultMap id="listingMap" type="com.usedcar.domain.Listing">
+        <id property="id" column="id"/>
+        <result property="sellerId" column="seller_id"/>
+        <result property="title" column="title"/>
+        <result property="price" column="price"/>
+        <result property="make" column="make"/>
+        <result property="model" column="model"/>
+        <result property="year" column="year"/>
+        <result property="mileage" column="mileage"/>
+        <result property="fuelType" column="fuel_type"/>
+        <result property="transmission" column="transmission"/>
+        <result property="city" column="city"/>
+        <result property="description" column="description"/>
+        <result property="status" column="status"/>
+        <result property="publishedAt" column="published_at"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.usedcar.domain.Listing"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO listings
+            (seller_id, title, price, make, model, year, mileage, fuel_type,
+             transmission, city, description, status, published_at, created_at, updated_at)
+        VALUES
+            (#{sellerId}, #{title}, #{price}, #{make}, #{model}, #{year}, #{mileage}, #{fuelType},
+             #{transmission}, #{city}, #{description}, #{status}, #{publishedAt}, NOW(), NOW())
+    </insert>
+
+    <update id="update" parameterType="com.usedcar.domain.Listing">
+        UPDATE listings
+        <set>
+            <if test="title != null">title = #{title},</if>
+            <if test="price != null">price = #{price},</if>
+            <if test="make != null">make = #{make},</if>
+            <if test="model != null">model = #{model},</if>
+            <if test="year != null">year = #{year},</if>
+            <if test="mileage != null">mileage = #{mileage},</if>
+            <if test="fuelType != null">fuel_type = #{fuelType},</if>
+            <if test="transmission != null">transmission = #{transmission},</if>
+            <if test="city != null">city = #{city},</if>
+            <if test="description != null">description = #{description},</if>
+            updated_at = NOW()
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateStatus">
+        UPDATE listings
+        SET status = #{status},
+            updated_at = NOW()
+            <if test="publish">, published_at = COALESCE(published_at, NOW())</if>
+        WHERE id = #{id}
+    </update>
+
+    <select id="findById" resultMap="listingMap">
+        SELECT * FROM listings WHERE id = #{id}
+    </select>
+
+    <select id="findBySeller" resultMap="listingMap">
+        SELECT * FROM listings
+        WHERE seller_id = #{sellerId} AND status != 'DELETED'
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="findNewestPublished" resultMap="listingMap">
+        SELECT * FROM listings
+        WHERE status = 'PUBLISHED'
+        ORDER BY published_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findByIds" resultMap="listingMap">
+        SELECT * FROM listings WHERE id IN
+        <foreach collection="ids" item="cid" open="(" separator="," close=")">
+            #{cid}
+        </foreach>
+    </select>
+
+    <insert id="insertPhotos">
+        INSERT INTO listing_photos (listing_id, url, sort_order) VALUES
+        <foreach collection="urls" item="url" index="i" separator=",">
+            (#{listingId}, #{url}, #{i})
+        </foreach>
+    </insert>
+
+    <delete id="deletePhotos">
+        DELETE FROM listing_photos WHERE listing_id = #{listingId}
+    </delete>
+
+    <select id="findPhotoUrls" resultType="java.lang.String">
+        SELECT url FROM listing_photos WHERE listing_id = #{listingId} ORDER BY sort_order
+    </select>
+</mapper>

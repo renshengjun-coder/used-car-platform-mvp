@@ -1,0 +1,46 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: used-car-backend
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DB:usedcar}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USER:usedcar}
+    password: ${MYSQL_PASSWORD:usedcar}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+  elasticsearch:
+    uris: ${ES_URIS:http://localhost:9200}
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.usedcar.domain
+  configuration:
+    map-underscore-to-camel-case: true
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:change-me-in-prod-this-is-a-demo-secret-key-please-rotate-0123456789}
+    expiration-ms: 86400000
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
+  recommendation:
+    weight-attr-match: 0.5
+    weight-popularity: 0.3
+    weight-recency: 0.2
+    popular-window-days: 7
+    max-results: 10
+  upload:
+    max-photos: 9
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    com.usedcar: INFO

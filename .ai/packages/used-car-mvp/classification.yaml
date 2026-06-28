@@ -1,0 +1,23 @@
+package_id: used-car-mvp
+suggested_tier: standard
+active_profile: standard
+signals:
+  - type: feature
+    detail: greenfield MVP platform
+  - blast_radius: full-repo
+    detail: new application from empty scaffold
+  - auth: likely
+    detail: buyer/seller accounts expected
+  - pii: likely
+    detail: user profiles and listing contact data
+  - public_api: yes
+    detail: marketplace listings and search
+  - infra: yes
+    detail: new deployment, storage, and CI setup
+  - payment: unknown
+    detail: not confirmed in scope
+  - migration: none
+    detail: greenfield, no legacy data
+confidence: medium
+override: null
+classified_at: "2026-06-28"

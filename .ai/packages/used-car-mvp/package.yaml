@@ -1,0 +1,39 @@
+id: used-car-mvp
+owner: ""
+profile: standard
+mode: loop
+status: ready_for_release
+phases:
+  requirements:
+    status: archived
+    artifact_version: v1
+  design:
+    status: archived
+    artifact_version: v1
+  test-plan:
+    status: archived
+    artifact_version: v1
+  implementation:
+    status: archived
+    artifact_version: v1
+  code-review:
+    status: archived
+    artifact_version: v1
+  test-report:
+    status: archived
+    artifact_version: v2
+  release:
+    status: archived
+    artifact_version: v1
+children: []
+run_control:
+  state: done
+  stopped_at: null
+  reason: null
+  since: null
+  next_action: null
+  history:
+    - { at: "2026-06-28T07:25:00Z", event: continued, phase: test-report, by: user }
+    - { at: "2026-06-28T07:25:00Z", event: gate_pass, phase: test-report, gate: test-report-1 }
+    - { at: "2026-06-28T07:25:00Z", event: gate_pass, phase: release, gate: release-1 }
+    - { at: "2026-06-28T07:25:00Z", event: done, phase: release, by: devloop }

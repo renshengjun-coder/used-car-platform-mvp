@@ -1,0 +1,19 @@
+# .ai/config/profiles.yaml
+contract:
+  evidence_policy: .ai/contracts/evidence-policy.yaml
+  version: 2026-06-23.1
+
+standard:
+  phases: [requirements, design, test-plan, implementation, code-review, test-report, release]
+  human_gates: [requirements]
+  max_reentry: 3
+
+routine:
+  phases: [requirements, implementation, code-review, test-report, release]
+  human_gates: []
+  max_reentry: 2
+
+high_risk:
+  phases: [requirements, design, test-plan, implementation, code-review, test-report, release]
+  human_gates: [requirements, design, test-plan, code-review, test-report, release]
+  max_reentry: 3
