@@ -1,0 +1,208 @@
+# Retro action item #1: automated mvn verify + Playwright E2E on every PR/push.
+# Integration tests use GitHub Actions service containers (same pattern as local
+# docker compose up mysql elasticsearch).
+
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MYSQL_HOST: 127.0.0.1
+  MYSQL_PORT: "3306"
+  MYSQL_DB: usedcar
+  MYSQL_USER: usedcar
+  MYSQL_PASSWORD: usedcar
+  ES_URIS: http://127.0.0.1:9200
+  JWT_SECRET: ci-test-secret-key-not-for-production-use-only-0123456789
+  CORS_ORIGINS: http://localhost:3000
+
+jobs:
+  backend-verify:
+    name: Backend (mvn verify)
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: usedcar
+          MYSQL_USER: usedcar
+          MYSQL_PASSWORD: usedcar
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+      elasticsearch:
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+        env:
+          discovery.type: single-node
+          xpack.security.enabled: "false"
+          ES_JAVA_OPTS: -Xms512m -Xmx512m
+        ports:
+          - 9200:9200
+        options: >-
+          --health-cmd="curl -sf http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=60s"
+          --health-interval=10s
+          --health-timeout=10s
+          --health-retries=12
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Wait for Elasticsearch
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf "$ES_URIS/_cluster/health?wait_for_status=yellow&timeout=30s"; then
+              echo "Elasticsearch ready"
+              exit 0
+            fi
+            echo "Waiting for ES ($i/30)..."
+            sleep 5
+          done
+          echo "Elasticsearch did not become ready in time"
+          exit 1
+
+      - name: mvn verify
+        working-directory: backend
+        run: mvn -B verify
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: usedcar
+          MYSQL_USER: usedcar
+          MYSQL_PASSWORD: usedcar
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+      elasticsearch:
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+        env:
+          discovery.type: single-node
+          xpack.security.enabled: "false"
+          ES_JAVA_OPTS: -Xms512m -Xmx512m
+        ports:
+          - 9200:9200
+        options: >-
+          --health-cmd="curl -sf http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=60s"
+          --health-interval=10s
+          --health-timeout=10s
+          --health-retries=12
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Wait for Elasticsearch
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf "$ES_URIS/_cluster/health?wait_for_status=yellow&timeout=30s"; then
+              echo "Elasticsearch ready"
+              exit 0
+            fi
+            echo "Waiting for ES ($i/30)..."
+            sleep 5
+          done
+          exit 1
+
+      - name: Build backend JAR
+        working-directory: backend
+        run: mvn -B -DskipTests package
+
+      - name: Start backend
+        working-directory: backend
+        run: |
+          nohup java -jar target/used-car-backend-0.1.0.jar > /tmp/backend.log 2>&1 &
+          echo $! > /tmp/backend.pid
+          for i in $(seq 1 60); do
+            if curl -sf "http://localhost:8080/api/v1/listings?page=0&size=1"; then
+              echo "Backend ready"
+              exit 0
+            fi
+            echo "Waiting for backend ($i/60)..."
+            sleep 3
+          done
+          echo "--- backend log ---"
+          tail -100 /tmp/backend.log
+          exit 1
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_BASE: http://localhost:8080
+        run: npm run build
+
+      - name: Start frontend
+        working-directory: frontend
+        run: |
+          nohup npm run start > /tmp/frontend.log 2>&1 &
+          echo $! > /tmp/frontend.pid
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000; then
+              echo "Frontend ready"
+              exit 0
+            fi
+            echo "Waiting for frontend ($i/30)..."
+            sleep 2
+          done
+          echo "--- frontend log ---"
+          tail -100 /tmp/frontend.log
+          exit 1
+
+      - name: Install Playwright Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright E2E
+        working-directory: frontend
+        env:
+          E2E_BASE_URL: http://localhost:3000
+        run: npm run e2e
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: frontend/test-results/
+          if-no-files-found: ignore
